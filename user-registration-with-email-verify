@@ -1,0 +1,262 @@
+<?php
+$page="registration";
+
+include 'include/config.php';
+
+// import smtp file
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+$feedback='';
+
+if(isset($_POST['CustomerRegistration']) )
+    {
+        $fname=$_SESSION['fname']=mysqli_real_escape_string($conn,$_POST['fname']);
+        $lname=$_SESSION['lname']=mysqli_real_escape_string($conn,$_POST['lname']);
+        $email=$_SESSION['email']=mysqli_real_escape_string($conn,$_POST['email']);
+        $phone=$_SESSION['phone']=mysqli_real_escape_string($conn,$_POST['phone']);
+        $password=$_SESSION['password']=mysqli_real_escape_string($conn,$_POST['password']);
+        $cpassword=$_SESSION['cpassword']=mysqli_real_escape_string($conn,$_POST['cpassword']);
+        @$generate_otp=$_SESSION['generate_otp'];
+
+// do not repeat email and mobile number
+
+        $copy = "SELECT * from `sou_customerRegistration` WHERE email='".$email."'";
+        $copynum="SELECT * from `sou_customerRegistration` WHERE phone='".$phone."'";
+     if($conn->query($copy) -> num_rows > 0)
+    {
+        $feedback= '<div class="alert alert-danger alert-dismissable" role="alert" id="#flash-msg"> This Email already registered.</div>';
+     
+    }
+    else if($conn->query($copynum) -> num_rows > 0)
+    {
+        $feedback= '<div class="alert alert-danger alert-dismissable" role="alert" id="#flash-msg"> This Number already registered.</div>';
+     
+    }
+    
+    else{
+    	// random number generate_otp
+     $generate_otp = substr(number_format(time() * rand(), 0, '', ''), 0, 4);
+
+    $email=$_POST['email'];
+    $phone=$_POST['phone'];
+    $slct_customer_registration= mysqli_query($conn,"SELECT * FROM `sou_customerRegistration` WHERE email='".$email."'");
+    if($slct_customer_registration)
+    {
+        require 'vendor/autoload.php';
+    $mail = new PHPMailer(true);                              
+    try {
+        //Server settings
+        $mail->SMTPDebug = 0;                                 
+        $mail->isSMTP();                                      
+        $mail->Host = 'smtp.gmail.com';  
+        $mail->SMTPAuth = true;                               
+        $mail->Username = 'yourgamil';                 
+        $mail->Password = 'yourpassword';                           
+        $mail->SMTPSecure = 'ssl';                            
+        $mail->Port = 465;                                              
+
+        //Recipients
+        $mail->setFrom('yourgamil', 'Comapny Name');
+        $mail->addAddress($email); 
+        $mail->addCC('yourgamil.com');
+        
+        //Content
+        $mail->isHTML(true); 
+
+        $mail->Subject = 'OTP SMS from Company Names';
+        
+        $mail->Body    = 'Your OTP is <strong>'.$generate_otp.'</strong>';
+        
+        $mail->AltBody = '';
+
+        $mail->send();
+           // echo 'Message has been sent';
+        } 
+        catch (Exception $e) 
+        {
+            echo 'Message could not be sent. Mailer Error:', $mail->ErrorInfo;
+        }
+        
+        echo '<script>window.location.href="verify-otp.php"</script>';
+                        echo $conn->error;
+    }
+    else{
+                
+            }
+            $_SESSION['generate_otp']=$generate_otp;
+
+     
+        }
+    }
+?>
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Registration with Verify Email otp </title>
+</head>
+<body>
+
+<div class="row">
+	<?php if(!empty($feedback)) {echo $feedback;} ?>
+	<form autocomplete="on" id="registrationForm" method="post">
+        <input type="text"  name="fname" placeholder="First Name" required/>
+        <input type="text"  name="lname" placeholder="Last Name" required/>
+        <input type="email" name="email" placeholder="Email" required />
+        <input type="phone" name="phone" placeholder="Phone no." required />
+        <input type="password" name="password" placeholder="Password" id="password" required/>
+        <input type="password" name="cpassword" placeholder="Confirm Password" onkeyup="checkpassword()" id="cpassword" required/>
+        <div class="errors" id="errors"></div>
+        <div class="button-box mt-3 text-center">
+            <button class="btn" name="CustomerRegistration" type="submit"><span>Register</span></button>
+        </div>
+        
+        <p class="mt-3 text-center">Already have an account? <a href="login.php" class="" style="color:#38aa3d">LOG IN HERE</a></p>
+    </form>
+</div>
+
+
+
+ <!-- Jquery form validation -->
+<script async type="text/javascript" src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.js"></script>
+<script>
+function checkpassword()
+{
+    var pwd = document.getElementById("password").value;
+    var cpwd = document.getElementById("cpassword").value;
+    if(pwd==cpwd)
+    {
+      document.getElementById("errors").style.color ='Green';
+      document.getElementById("errors").innerHTML ="<i class='fa fa-check-circle'></i> Password match";
+    }
+    else
+    {
+      document.getElementById("errors").style.color ='#ff192f';
+      document.getElementById("errors").innerHTML ="<i class='fa fa-exclamation-circle'></i> Password does not match";
+    }
+}
+</script>
+<script>
+    $("#registrationForm").validate();
+</script>
+</body>
+</html>
+
+
+<!-- verify-otp -->
+
+
+<?php
+$page="verify";
+
+include 'include/config.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+$feedback='';
+
+         @$fname=$_SESSION['fname'];
+         @$lname=$_SESSION['lname'];
+         @$email=$_SESSION['email'];
+         @$phone=$_SESSION['phone'];
+         @$password=$_SESSION['password'];
+         $encpassword=password_hash($password, PASSWORD_BCRYPT);
+        //  $created=date("d-M-Y");
+         @$generate_otp=$_SESSION['generate_otp'];
+        
+        if(isset($_POST['userverify']))
+    {
+            $num1=$_POST['num1'];
+            $num2=$_POST['num2'];
+            $num3=$_POST['num3'];
+            $num4=$_POST['num4'];
+            $user_otp=$num1.$num2.$num3.$num4;
+
+	    if($generate_otp == $user_otp)
+	    {
+            
+            
+    $regQuery = mysqli_query($conn,"INSERT INTO `sou_customerRegistration`(`fname`, `lname`, `email`, `phone`, `password`) 
+    VALUES ('$fname','$lname','$email','$phone','$encpassword')");
+        
+    if($regQuery)
+    {
+
+    require 'vendor/autoload.php';
+    $mail = new PHPMailer(true);                              
+    try {
+        //Server settings
+        $mail->SMTPDebug = 0;                                 
+        $mail->isSMTP();                                      
+        $mail->Host = 'smtp.gmail.com';  
+        $mail->SMTPAuth = true;                               
+        $mail->Username = 'yourgamil';                 
+        $mail->Password = 'yourpassword';                           
+        $mail->SMTPSecure = 'ssl';                            
+        $mail->Port = 465;                                              
+
+        //Recipients
+        $mail->setFrom('yourgamil', 'company name');
+        $mail->addAddress($email);
+        $mail->addCC('yourgamil.com');
+        
+        //Content
+        $mail->isHTML(true); 
+
+        $mail->Subject = 'Registration completed successfully ';
+        
+        $mail->Body    = 'send mail after verify email';
+        
+        $mail->AltBody = '';
+
+        $mail->send();
+           // echo 'Message has been sent';
+        } 
+        catch (Exception $e) 
+        {
+            echo 'Message could not be sent. Mailer Error:', $mail->ErrorInfo;
+        }
+        
+        echo '<script>window.location.href="registration-success.php"</script>';
+    }  
+        
+	    }
+	    else{
+    		$feedback= '<div class="alert alert-danger alert-dismissable" role="alert" id="#flash-msg">You Entered Wrong OTP</div>';
+    	} 
+	    
+	    
+    }
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+	<title>verify otp</title>
+</head>
+<body>
+	<div class="row">
+		<?php if(!empty($feedback)) {echo $feedback;} ?>
+		<form method="post" class="mt-5 mb-5">
+	        <input class="otp" id='fist' name="num1" type="text" onkeyup="clickEvent(this,'sec')" maxlength="1" onkeypress="return event.charCode &gt;= 48 &amp;&amp; event.charCode &lt;= 57" autocomplete="off" required>
+	        <input class="otp" id="sec" name="num2" type="text" onkeyup="clickEvent(this,'third')" maxlength="1" onkeypress="return event.charCode &gt;= 48 &amp;&amp; event.charCode &lt;= 57" autocomplete="off" required>
+	        <input class="otp" id="third" name="num3" type="text" onkeyup="clickEvent(this,'fourth')" maxlength="1" onkeypress="return event.charCode &gt;= 48 &amp;&amp; event.charCode &lt;= 57" autocomplete="off" required>
+	        <input class="otp" id="fourth" name="num4" type="text" onkeyup="clickEvent(this,'fifth')" maxlength="1" onkeypress="return event.charCode &gt;= 48 &amp;&amp; event.charCode &lt;= 57" autocomplete="off" required>
+	        
+	        <hr class="mt-4">
+	        <button class='btn btn-sucess btn-block mt-4 mb-4' name="userverify" type="submit">Verify</button>
+	    </form>
+	</div>
+
+	<script>
+    function clickEvent(first,last){
+          if(first.value.length){
+          document.getElementById(last).focus();
+          }
+    }
+    </script>
+</body>
+</html>
